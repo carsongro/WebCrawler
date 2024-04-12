@@ -25,22 +25,44 @@ function getURLsFromHTML(htmlBody, baseURL) {
     return res
 }
 
-async function crawlPage(url) {
-    const response = await fetch(url)
-    if (response.status >= 400) {
-        console.log('Error fetching data')
-        return
-    }
-    if (!response.headers.get('content-type').includes('text/html')) {
-        console.log('Content type is not in the correct format')
-        return
+async function crawlPage(url, currentURL, pages) {
+    const baseURLObj = new URL(url)
+    const currentURLObj = new URL(currentURL)
+
+    if (baseURLObj.hostname !== currentURLObj.hostname) {
+        return pages
     }
 
+    const normalizedURL = normalizeURL(currentURL)
+
+    if (pages[normalizedURL]) {
+        pages[normalizedURL]++
+        return pages
+    }
+
+    pages[normalizedURL] = 1
+
+    console.log(`Fetching ${currentURL}`)
+    const response = await fetch(currentURL)
+    
+    if (response.status >= 400) {
+        console.log('Error fetching data')
+        return pages
+    }
+
+    if (!response.headers.get('content-type').includes('text/html')) {
+        console.log('Content type is not in the correct format')
+        return pages
+    }
     try {
         const html = await response.text()
-        console.log(html)
+        bodyURLs = getURLsFromHTML(html, url)
+        for (bodyURL of bodyURLs) {
+            pages = await crawlPage(url, bodyURL, pages)
+        }
+        return pages
     } catch(err) {
-        console.log(`Error getting html body: ${err.message}`)
+        console.log(`Error getting html body for ${currentURL}: ${err.message}`)
     }
 }
 
